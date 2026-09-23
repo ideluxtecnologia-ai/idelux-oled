@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>IDELUX · Live Photo Display</title>
+<style>
+:root{--a:#42efc8;--bg:#000;--panel:#07110f;--line:#22443b;--txt:#effffb;--muted:#8eaaa4}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:var(--txt);font-family:Inter,Segoe UI,Arial,sans-serif}
+button,select,input{font:inherit}button{cursor:pointer}
+#app{position:relative;width:100vw;height:100vh;background:#000;overflow:hidden}
+.stage{position:absolute;inset:0;background:#000;display:grid;place-items:center;overflow:hidden}
+.photoWrap{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden}
+.photo{width:100%;height:100%;object-fit:contain;display:block;opacity:0;transform:scale(.98)}
+.photo.ready{opacity:1;transform:none}
+.photo.fit-cover{object-fit:cover}
+.photo.anim-fade{animation:fadeIn .9s cubic-bezier(.2,.8,.2,1) forwards}
+.photo.anim-zoom{animation:zoomIn 1.25s cubic-bezier(.16,.8,.2,1) forwards}
+.photo.anim-slide{animation:slideIn 1.05s cubic-bezier(.16,.8,.2,1) forwards}
+.photo.anim-rise{animation:riseIn 1.15s cubic-bezier(.16,.8,.2,1) forwards}
+.photo.anim-cinematic{animation:cinematic 1.45s cubic-bezier(.16,.8,.2,1) forwards}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes zoomIn{0%{opacity:0;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+@keyframes slideIn{0%{opacity:0;transform:translateX(8vw) scale(1.035)}100%{opacity:1;transform:none}}
+@keyframes riseIn{0%{opacity:0;transform:translateY(8vh) scale(1.03)}100%{opacity:1;transform:none}}
+@keyframes cinematic{0%{opacity:0;transform:scale(.86) rotate(-1.2deg);filter:blur(12px) brightness(.65)}55%{opacity:1;filter:blur(0) brightness(1.08)}100%{opacity:1;transform:scale(1) rotate(0);filter:none}}
+.ambient{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 45%,transparent 0 42%,rgba(0,0,0,.15) 78%,rgba(0,0,0,.48));z-index:3}
+.brand{position:absolute;left:3vw;bottom:3vh;z-index:6;padding:10px 14px;border-left:3px solid var(--a);background:#0007;backdrop-filter:blur(6px);display:none}
+.brand.show{display:block}.brand b{font-size:clamp(15px,1.2vw,24px);letter-spacing:.14em}.brand small{display:block;color:#b6d9d1;margin-top:3px;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.empty{position:absolute;inset:0;z-index:2;display:grid;place-items:center;text-align:center;padding:40px;background:radial-gradient(circle at 50% 48%,#0a1c18 0%,#030706 42%,#000 76%)}
+.empty.hidden{display:none}.empty .orb{width:160px;height:160px;border:1px solid #42efc84b;border-radius:50%;margin:auto;box-shadow:0 0 70px #42efc811,inset 0 0 50px #42efc80e;position:relative}
+.empty .orb:before{content:"";position:absolute;inset:17%;border:1px dashed #7690ff55;border-radius:50%;animation:spin 18s linear infinite}
+.empty .orb:after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;border:2px solid var(--a);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 18px var(--a)}
+@keyframes spin{to{transform:rotate(360deg)}}.empty h1{font-size:clamp(28px,3vw,52px);margin:25px 0 8px;letter-spacing:-.04em}.empty p{color:var(--muted);max-width:620px;line-height:1.55;margin:0 auto}
+.topStatus{position:absolute;top:18px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:10px;align-items:center;border:1px solid #22443b;background:#06100ee8;padding:8px 13px;border-radius:999px;font-size:11px;color:#a5c2ba;backdrop-filter:blur(8px);transition:.2s}
+.dot{width:8px;height:8px;border-radius:50%;background:#69746f}.dot.live{background:var(--a);box-shadow:0 0 13px var(--a)}.dot.wait{background:#ffd775;box-shadow:0 0 12px #ffd77566}
+.panel{position:absolute;right:18px;top:18px;bottom:18px;width:min(360px,34vw);z-index:20;background:#06100ef2;border:1px solid var(--line);border-radius:20px;padding:20px;overflow:auto;box-shadow:0 20px 80px #000b;backdrop-filter:blur(15px);transition:transform .28s,opacity .28s}
+.panel.hidden{transform:translateX(calc(100% + 30px));opacity:0;pointer-events:none}
+.logo{font-size:20px;font-weight:850;letter-spacing:.15em}.logo span{color:var(--a)}.caption{color:#708e86;text-transform:uppercase;letter-spacing:.16em;font-size:9px;margin-top:4px}
+.section{margin-top:22px;padding-top:18px;border-top:1px solid #17372f}.section:first-of-type{margin-top:18px}.section h3{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--a);margin:0 0 12px}
+.btn{border:1px solid #2b574b;background:#0d211c;color:#e9fff9;border-radius:11px;padding:11px 13px;font-size:12px}.btn:hover{border-color:var(--a)}.btn.primary{background:var(--a);color:#00251c;border-color:var(--a);font-weight:750}.btn.full{width:100%}.row{display:flex;gap:8px}.row>*{flex:1}
+.field{display:grid;gap:6px;margin:11px 0}.field label{font-size:10px;color:#8dacA4;text-transform:uppercase;letter-spacing:.09em}.field select,.field input[type=text],.field input[type=number]{width:100%;background:#040b09;color:white;border:1px solid #23483e;border-radius:9px;padding:10px}
+.switchline{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:12px 0;font-size:12px;color:#b4c9c3}.switchline input{accent-color:var(--a);width:17px;height:17px}
+.folderBox{padding:12px;border:1px solid #1d4036;border-radius:12px;background:#091914}.folderName{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.folderMeta{margin-top:5px;color:#6f8e86;font-size:10px;line-height:1.45}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.stat{border:1px solid #1d4035;background:#081712;border-radius:11px;padding:11px}.stat b{font-size:18px;display:block}.stat small{color:#66867e;text-transform:uppercase;font-size:8px;letter-spacing:.1em}
+.help{font-size:10px;color:#66837c;line-height:1.55}.kbd{display:inline-block;border:1px solid #31554c;background:#0e211c;padding:2px 6px;border-radius:5px;color:#bad2cc}
+.toggle{position:absolute;right:18px;bottom:18px;z-index:30;border:1px solid #2d5b4e;background:#071611dd;color:var(--a);padding:10px 13px;border-radius:999px;font-size:11px;backdrop-filter:blur(8px)}
+.fileInfo{position:absolute;left:18px;top:18px;z-index:8;max-width:44vw;padding:8px 11px;border-radius:10px;background:#0007;border:1px solid #ffffff14;color:#a9c1bb;font-size:10px;opacity:0;transition:.2s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fileInfo.show{opacity:1}
+.flash{position:absolute;inset:0;pointer-events:none;z-index:7;background:white;opacity:0}.flash.go{animation:flash .25s ease-out}@keyframes flash{0%{opacity:.32}100%{opacity:0}}
+@media(max-width:850px){.panel{width:min(410px,88vw)}.topStatus{left:18px;transform:none;max-width:45vw;white-space:nowrap;overflow:hidden}.fileInfo{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="stage">
+    <div class="photoWrap"><img id="photo" class="photo" alt="Última fotografía"></div>
+    <div class="ambient"></div>
+    <div id="brand" class="brand"><b id="brandText">IDELUX EVENTS</b><small>Live Photo Display</small></div>
+    <div id="empty" class="empty">
+      <div><div class="orb"></div><h1>Live Photo Display</h1><p>Selecciona una carpeta. Cuando aparezca una fotografía nueva, IDELUX la mostrará automáticamente con una entrada animada y permanecerá fija hasta la siguiente imagen.</p></div>
+    </div>
+    <div id="flash" class="flash"></div>
+  </div>
+
+  <div class="fileInfo" id="fileInfo">Sin fotografía</div>
+  <div class="topStatus"><span id="dot" class="dot"></span><span id="status">Selecciona una carpeta</span></div>
+
+  <aside id="panel" class="panel">
+    <div class="logo"><span>IDELUX</span> / LIVE</div>
+    <div class="caption">Automatic photo display</div>
+
+    <div class="section">
+      <h3>1 · Carpeta de fotografías</h3>
+      <div class="folderBox"><div id="folderName" class="folderName">Ninguna carpeta seleccionada</div><div id="folderMeta" class="folderMeta">Compatible con JPG, JPEG, PNG, WEBP, BMP y GIF.</div></div>
+      <div class="row" style="margin-top:10px"><button id="selectFolder" class="btn primary">Seleccionar carpeta</button><button id="reconnect" class="btn">Reconectar</button></div>
+      <div class="switchline"><span>Revisar subcarpetas</span><input id="recursive" type="checkbox"></div>
+      <div class="switchline"><span>Mostrar última foto existente al conectar</span><input id="showExisting" type="checkbox" checked></div>
+    </div>
+
+    <div class="section">
+      <h3>2 · Presentación</h3>
+      <div class="field"><label>Animación de entrada</label><select id="animation"><option value="cinematic">Cinemática</option><option value="zoom">Zoom suave</option><option value="slide">Deslizar lateral</option><option value="rise">Subir</option><option value="fade">Fundido</option></select></div>
+      <div class="field"><label>Ajuste de fotografía</label><select id="fit"><option value="contain">Completa / sin cortar</option><option value="cover">Llenar pantalla / puede cortar</option></select></div>
+      <div class="field"><label>Intervalo de detección</label><select id="interval"><option value="500">0,5 segundos</option><option value="800" selected>0,8 segundos</option><option value="1200">1,2 segundos</option><option value="2000">2 segundos</option></select></div>
+      <div class="switchline"><span>Destello suave al cambiar</span><input id="flashEnabled" type="checkbox"></div>
+      <div class="switchline"><span>Mostrar marca</span><input id="brandEnabled" type="checkbox"></div>
+      <div class="field"><label>Texto de marca</label><input id="brandInput" type="text" value="IDELUX EVENTS"></div>
+    </div>
+
+    <div class="section">
+      <h3>3 · Operación</h3>
+      <div class="row"><button id="fullscreen" class="btn">Pantalla completa</button><button id="hidePanel" class="btn">Ocultar panel</button></div>
+      <button id="rescan" class="btn full" style="margin-top:8px">Buscar foto nueva ahora</button>
+      <div class="stats" style="margin-top:11px"><div class="stat"><b id="photoCount">0</b><small>fotos detectadas</small></div><div class="stat"><b id="changeCount">0</b><small>cambios mostrados</small></div></div>
+    </div>
+
+    <div class="section">
+      <h3>Uso recomendado</h3>
+      <div class="help">Déjalo abierto en Chrome o Edge mientras DSLRBooth, Lightroom u otro programa guarda las fotografías en la carpeta seleccionada. El navegador debe permanecer abierto.<br><br><span class="kbd">F</span> pantalla completa · <span class="kbd">H</span> mostrar/ocultar panel · <span class="kbd">Espacio</span> revisar ahora.</div>
+    </div>
+  </aside>
+
+  <button id="toggle" class="toggle">⚙ Controles</button>
+</div>
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const photo=$('#photo'),empty=$('#empty'),panel=$('#panel'),statusEl=$('#status'),dot=$('#dot');
+let dirHandle=null,timer=null,currentKey='',currentURL='',seenAtStart=new Set(),changeCount=0;
+let stability=new Map(),busy=false,firstConnection=true;
+const exts=/\.(jpe?g|png|webp|bmp|gif)$/i;
+
+function setStatus(text,type=''){
+  statusEl.textContent=text;
+  dot.className='dot '+type;
+}
+function supportsFS(){return 'showDirectoryPicker' in window}
+function saveSetting(id){
+  const el=$(id);
+  const value=el.type==='checkbox'?el.checked:el.value;
+  localStorage.setItem('idelux-live-'+id.slice(1),JSON.stringify(value));
+}
+function loadSettings(){
+  ['#recursive','#showExisting','#animation','#fit','#interval','#flashEnabled','#brandEnabled','#brandInput'].forEach(id=>{
+    const el=$(id),raw=localStorage.getItem('idelux-live-'+id.slice(1));
+    if(raw!==null){try{const v=JSON.parse(raw);if(el.type==='checkbox')el.checked=!!v;else el.value=v}catch{}}
+    el.addEventListener('change',()=>{saveSetting(id);applyPresentationSettings();restartTimer()});
+  });
+}
+function applyPresentationSettings(){
+  photo.classList.toggle('fit-cover',$('#fit').value==='cover');
+  $('#brand').classList.toggle('show',$('#brandEnabled').checked);
+  $('#brandText').textContent=$('#brandInput').value.trim()||'IDELUX EVENTS';
+}
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open('idelux-live-photo-db',1);
+    req.onupgradeneeded=()=>req.result.createObjectStore('handles');
+    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+  });
+}
+async function storeHandle(handle){
+  try{const db=await openDB();const tx=db.transaction('handles','readwrite');tx.objectStore('handles').put(handle,'lastFolder')}catch{}
+}
+async function getStoredHandle(){
+  try{
+    const db=await openDB();
+    return await new Promise((resolve,reject)=>{const tx=db.transaction('handles','readonly');const r=tx.objectStore('handles').get('lastFolder');r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)});
+  }catch{return null}
+}
+async function verifyPermission(handle,ask=false){
+  if(!handle)return false;
+  const opts={mode:'read'};
+  if(await handle.queryPermission(opts)==='granted')return true;
+  if(ask&&await handle.requestPermission(opts)==='granted')return true;
+  return false;
+}
+async function selectFolder(){
+  if(!supportsFS()){alert('Este navegador no permite seleccionar y vigilar carpetas. Usa Google Chrome o Microsoft Edge de escritorio mediante HTTPS.');return}
+  try{
+    const handle=await window.showDirectoryPicker({mode:'read'});
+    await connectFolder(handle,true);
+    await storeHandle(handle);
+  }catch(e){if(e.name!=='AbortError')alert('No se pudo abrir la carpeta: '+e.message)}
+}
+async function reconnect(){
+  const h=dirHandle||await getStoredHandle();
+  if(!h){alert('No hay una carpeta guardada todavía. Pulsa “Seleccionar carpeta”.');return}
+  if(!await verifyPermission(h,true)){alert('No se concedió permiso para leer la carpeta.');return}
+  await connectFolder(h,true);
+}
+async function connectFolder(handle,newConnection=false){
+  dirHandle=handle;
+  $('#folderName').textContent=handle.name;
+  $('#folderMeta').textContent='Vigilando esta carpeta de forma local. Las fotografías no se suben a internet.';
+  stability.clear();seenAtStart.clear();currentKey='';firstConnection=newConnection;
+  setStatus('Conectando…','wait');
+  const files=await collectImages();
+  files.forEach(x=>seenAtStart.add(x.key));
+  $('#photoCount').textContent=files.length;
+  if(files.length&&$('#showExisting').checked){
+    const latest=files.sort(sortFiles)[0];
+    stability.set(latest.key,{size:latest.file.size,lastModified:latest.file.lastModified,count:2});
+    await showFile(latest);
+  }else{
+    setStatus('Esperando una foto nueva','live');
+  }
+  restartTimer();
+}
+function sortFiles(a,b){return b.file.lastModified-a.file.lastModified||b.name.localeCompare(a.name)}
+async function collectImages(){
+  if(!dirHandle)return[];
+  const found=[];
+  async function walk(handle,prefix=''){
+    for await(const [name,entry] of handle.entries()){
+      if(entry.kind==='file'&&exts.test(name)){
+        try{
+          const file=await entry.getFile();
+          found.push({name:prefix+name,file,handle:entry,key:(prefix+name)+'|'+file.lastModified+'|'+file.size});
+        }catch{}
+      }else if(entry.kind==='directory'&&$('#recursive').checked){
+        await walk(entry,prefix+name+'/');
+      }
+    }
+  }
+  await walk(dirHandle);
+  return found;
+}
+function stableEnough(item){
+  const prev=stability.get(item.key);
+  if(!prev){stability.set(item.key,{size:item.file.size,lastModified:item.file.lastModified,count:1});return false}
+  if(prev.size===item.file.size&&prev.lastModified===item.file.lastModified){prev.count++;return prev.count>=2}
+  stability.set(item.key,{size:item.file.size,lastModified:item.file.lastModified,count:1});return false
+}
+async function scan(){
+  if(!dirHandle||busy)return;
+  busy=true;
+  try{
+    const files=await collectImages();
+    $('#photoCount').textContent=files.length;
+    if(!files.length){setStatus('Carpeta conectada · sin fotografías','live');return}
+    files.sort(sortFiles);
+    const latest=files[0];
+    if(latest.key===currentKey){setStatus('Esperando una foto nueva','live');return}
+    if(!stableEnough(latest)){setStatus('Nueva foto detectada · esperando que termine de guardarse','wait');return}
+    if(firstConnection&&!$('#showExisting').checked&&seenAtStart.has(latest.key)){
+      setStatus('Esperando una foto nueva','live');return;
+    }
+    await showFile(latest);
+    firstConnection=false;
+  }catch(e){
+    setStatus('No se pudo leer la carpeta','wait');
+    console.error(e);
+  }finally{busy=false}
+}
+async function showFile(item){
+  const url=URL.createObjectURL(item.file);
+  await preload(url);
+  if(currentURL)URL.revokeObjectURL(currentURL);
+  currentURL=url;currentKey=item.key;
+  photo.className='photo'+($('#fit').value==='cover'?' fit-cover':'');
+  void photo.offsetWidth;
+  photo.src=url;
+  photo.classList.add('anim-'+$('#animation').value);
+  empty.classList.add('hidden');
+  $('#fileInfo').textContent=item.name+' · '+formatBytes(item.file.size);
+  $('#fileInfo').classList.add('show');
+  setTimeout(()=>$('#fileInfo').classList.remove('show'),2600);
+  if($('#flashEnabled').checked){const f=$('#flash');f.classList.remove('go');void f.offsetWidth;f.classList.add('go')}
+  changeCount++;$('#changeCount').textContent=changeCount;
+  setStatus('Mostrando '+item.name,'live');
+}
+function preload(url){return new Promise((resolve,reject)=>{const i=new Image();i.onload=resolve;i.onerror=reject;i.src=url})}
+function formatBytes(n){if(n<1024)return n+' B';if(n<1048576)return(n/1024).toFixed(1)+' KB';return(n/1048576).toFixed(1)+' MB'}
+function restartTimer(){
+  clearInterval(timer);
+  if(dirHandle)timer=setInterval(scan,Number($('#interval').value)||800);
+}
+function togglePanel(force){
+  const hidden=typeof force==='boolean'?force:!panel.classList.contains('hidden');
+  panel.classList.toggle('hidden',hidden);
+  $('#toggle').style.display=hidden?'block':'none';
+}
+async function full(){
+  try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch{}
+}
+$('#selectFolder').onclick=selectFolder;$('#reconnect').onclick=reconnect;$('#rescan').onclick=scan;
+$('#fullscreen').onclick=full;$('#hidePanel').onclick=()=>togglePanel(true);$('#toggle').onclick=()=>togglePanel(false);
+document.addEventListener('keydown',e=>{
+  if(e.key.toLowerCase()==='f')full();
+  if(e.key.toLowerCase()==='h')togglePanel();
+  if(e.code==='Space'&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();scan()}
+});
+window.addEventListener('beforeunload',()=>{if(currentURL)URL.revokeObjectURL(currentURL)});
+loadSettings();applyPresentationSettings();
+if(!supportsFS()){
+  setStatus('Usa Chrome o Edge de escritorio','wait');
+  $('#folderMeta').textContent='Tu navegador no soporta selección persistente de carpetas.';
+}
+(async()=>{
+  const saved=await getStoredHandle();
+  if(saved){
+    $('#folderName').textContent=saved.name+' (guardada)';
+    $('#folderMeta').textContent='Pulsa “Reconectar” para volver a vigilar esta carpeta.';
+    dirHandle=saved;
+    if(await verifyPermission(saved,false))await connectFolder(saved,true);
+  }
+})();
+</script>
+</body>
+</html>
